@@ -10,7 +10,7 @@ public sealed class CurrencyException : Exception
 
     private static readonly IReadOnlyDictionary<ErrorCode, string> ErrorMessages = new Dictionary<ErrorCode, string>
     {
-        [ErrorCode.InvalidCurrencyCode] = "The currency code '{0}' is invalid. Valid codes are: {1}",
+        [ErrorCode.InvalidCurrencyCode] = "The Currency code is invalid",
         [ErrorCode.InvalidCurrencySymbol] = "Currency symbol cannot be null or whitespace",
         [ErrorCode.NullCurrency] = "Currency instance cannot be null"
     };
@@ -23,26 +23,29 @@ public sealed class CurrencyException : Exception
         Code = code;
     }
 
-    private CurrencyException(ErrorCode code, string message, Exception innerException)
-        : base(message, innerException)
-    {
-        Code = code;
-    }
+    //private CurrencyException(ErrorCode code, string message, Exception innerException)
+    //    : base(message, innerException)
+    //{
+    //    Code = code;
+    //}
 
-    public static CurrencyException InvalidCurrencyCode(string? code, IEnumerable<string> validCodes)
-    {
-        if (validCodes == null)
-            throw new ArgumentNullException(nameof(validCodes));
+    //public static CurrencyException InvalidCurrencyCode(string? code, IEnumerable<string> validCodes)
+    //{
+    //    if (validCodes == null)
+    //        throw new ArgumentNullException(nameof(validCodes));
 
-        var validCodesList = validCodes.ToList();
-        var formattedMessage = string.Format(
-            ErrorMessages[ErrorCode.InvalidCurrencyCode],
-            code ?? "null",
-            string.Join(", ", validCodesList)
-        );
+    //    var validCodesList = validCodes.ToList();
+    //    var formattedMessage = string.Format(
+    //        ErrorMessages[ErrorCode.InvalidCurrencyCode],
+    //        code ?? "null",
+    //        string.Join(", ", validCodesList)
+    //    );
 
-        return new CurrencyException(ErrorCode.InvalidCurrencyCode, formattedMessage);
-    }
+    //    return new CurrencyException(ErrorCode.InvalidCurrencyCode, formattedMessage);
+    //}
+
+    public static CurrencyException InvalidCurrencyCode()
+      => new(ErrorCode.InvalidCurrencyCode, ErrorMessages[ErrorCode.InvalidCurrencySymbol]);
 
     public static CurrencyException InvalidCurrencySymbol()
         => new(ErrorCode.InvalidCurrencySymbol, ErrorMessages[ErrorCode.InvalidCurrencySymbol]);

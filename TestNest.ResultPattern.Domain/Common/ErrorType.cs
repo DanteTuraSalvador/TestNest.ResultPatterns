@@ -1,6 +1,6 @@
 ﻿namespace TestNest.ResultPattern.Domain.Common;
 
-public enum ErrorType
+    public enum ErrorType
 {
     None,
     Validation,
@@ -8,5 +8,6 @@ public enum ErrorType
     Unauthorized,
     Conflict,
     Internal,
-    Aggregate // For combined errors
+    Aggregate,
+         Invalid  // Add this if needed
 }

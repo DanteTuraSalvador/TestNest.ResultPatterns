@@ -3,6 +3,7 @@ using TestNest.ResultPattern.Domain.Exceptions;
 using TestNest.ResultPattern.Domain.ValueObjects.Common;
 
 namespace TestNest.ResultPattern.Domain.ValueObjects;
+
 public sealed class Currency : ValueObject
 {
     private static readonly HashSet<string> ValidCurrencyCodes = new() { "USD", "PHP", "EUR", "GBP", "JPY" };
@@ -21,42 +22,89 @@ public sealed class Currency : ValueObject
     public string Symbol { get; }
 
     private Currency() => (Code, Symbol) = (string.Empty, string.Empty);
+
     private Currency(string code, string symbol) => (Code, Symbol) = (code, symbol);
 
     public static Result<Currency> Create(string code, string symbol)
     {
+        var errors = new List<Error>();
+
         if (string.IsNullOrWhiteSpace(code) || code.Length != 3 || !ValidCurrencyCodes.Contains(code))
-            return Result<Currency>.Failure(ErrorType.Validation, CurrencyException.InvalidCurrencyCode(code, ValidCurrencyCodes).Message);
+        {
+            var exception = CurrencyException.InvalidCurrencyCode();
+            errors.Add(new Error(exception.Code.ToString(), exception.Message));
+        }
 
         if (string.IsNullOrWhiteSpace(symbol))
-            return Result<Currency>.Failure(ErrorType.Validation, CurrencyException.InvalidCurrencySymbol().Message);
+        {
+            var exception = CurrencyException.InvalidCurrencySymbol();
+            errors.Add(new Error(exception.Code.ToString(), exception.Message));
+        }
 
-        return Result<Currency>.Success(new Currency(code, symbol));
+        return errors.Any() ? Result<Currency>.Failure(ErrorType.Validation, errors)
+            : Result<Currency>.Success(new Currency(code, symbol));
     }
+
+    private static Currency? GetCurrencyByCode(string code) => code switch
+    {
+        "PHP" => PHP,
+        "USD" => USD,
+        "EUR" => EUR,
+        "GBP" => GBP,
+        "JPY" => JPY,
+        _ => null
+    };
 
     public static Result<Currency> Parse(string code)
     {
-        if (string.IsNullOrWhiteSpace(code))
-            return Result<Currency>.Failure(ErrorType.Validation, "Currency code cannot be empty.");
-
-        return code.ToUpperInvariant() switch
-        {
-            "PHP" => Result<Currency>.Success(PHP),
-            "USD" => Result<Currency>.Success(USD),
-            "EUR" => Result<Currency>.Success(EUR),
-            "GBP" => Result<Currency>.Success(GBP),
-            "JPY" => Result<Currency>.Success(JPY),
-            _ => Result<Currency>.Failure(ErrorType.Validation, CurrencyException.InvalidCurrencyCode(code, ValidCurrencyCodes).Message)
-        };
+        var currency = GetCurrencyByCode(code.ToUpperInvariant());
+        return string.IsNullOrWhiteSpace(code) || currency == null
+            ? Result<Currency>.Failure(ErrorType.Validation,
+                new Error(CurrencyException.InvalidCurrencyCode().Code.ToString(), CurrencyException.InvalidCurrencyCode().Message))
+            : Result<Currency>.Success(currency!);
     }
+
+    //public static Result<Currency> Parse(string code)
+    //{
+    //    if (string.IsNullOrWhiteSpace(code))
+    //    {
+    //        var exception = CurrencyException.InvalidCurrencyCode();
+    //        return Result<Currency>.Failure(ErrorType.Validation,
+    //            new Error(exception.Code.ToString(), exception.Message));
+    //    }
+
+    //    code = code.ToUpperInvariant();
+    //    var currency = GetCurrencyByCode(code);
+
+    //    if (currency == null)
+    //    {
+    //        var exception = CurrencyException.InvalidCurrencyCode();
+    //        return Result<Currency>.Failure(ErrorType.Validation,
+    //            new Error(exception.Code.ToString(), exception.Message));
+    //    }
+
+    //    return Result<Currency>.Success(currency);
+    //}
 
     public Result<Currency> WithUpdatedSymbol(string newSymbol)
-    {
-        if (string.IsNullOrWhiteSpace(newSymbol))
-            return Result<Currency>.Failure(ErrorType.Validation, CurrencyException.InvalidCurrencySymbol().Message);
+        => string.IsNullOrWhiteSpace(newSymbol) ? Result<Currency>.Failure(ErrorType.Validation, new Error(CurrencyException.InvalidCurrencySymbol().Code.ToString(), 
+                                                                                                           CurrencyException.InvalidCurrencySymbol().Message))
+            : Result<Currency>.Success(new Currency(this.Code, newSymbol));
 
-        return Result<Currency>.Success(new Currency(this.Code, newSymbol));
-    }
+    //public Result<Currency> WithUpdatedSymbol(string newSymbol)
+    //{
+    //    var errors = new List<Error>();
+
+    //    if (string.IsNullOrWhiteSpace(newSymbol))
+    //    {
+    //        var exception = CurrencyException.InvalidCurrencySymbol();
+    //        return Result<Currency>.Failure(ErrorType.Validation,
+    //            new Error(exception.Code.ToString(), exception.Message)
+    //        );
+    //    }
+
+    //    return Result<Currency>.Success(new Currency(this.Code, newSymbol));
+    //}
 
     public bool IsEmpty() => this == Empty;
 

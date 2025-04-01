@@ -1,111 +1,126 @@
 ﻿using TestNest.ResultPattern.Domain.ValueObjects;
-using TestNest.ResultPattern.Domain.Common;
 using System.Text;
+using TestNest.Domain.ValueObjects;
+using TestNest.ResultPattern.Domain.Common;
 
 class Program
 {
     static void Main()
     {
         Console.OutputEncoding = Encoding.UTF8; // Ensure proper encoding for special characters
-        Console.WriteLine("=== Price Value Object Demo ===\n");
+        Console.WriteLine("=== Price, AccommodationPrice & EstablishmentAccommodation Demo ===\n");
 
         // 1️⃣ Creating a valid price
-        Console.WriteLine("[1] Creating a valid price");
+        Console.WriteLine("[1] Creating a valid Price");
         Console.WriteLine("> Code: var validPriceResult = Price.Create(100, 150);");
         var validPriceResult = Price.Create(100, 150);
-        ShowResult(validPriceResult);
+        ShowPriceResult(validPriceResult);
 
         // 2️⃣ Creating an invalid price (Negative Standard Price)
-        Console.WriteLine("\n[2] Creating an invalid price (Negative Standard Price)");
-        Console.WriteLine("> Code: var invalidPriceResult1 = Price.Create(-50, 100);");
-        var invalidPriceResult1 = Price.Create(-50, 100);
-        ShowResult(invalidPriceResult1);
+        Console.WriteLine("\n[2] Creating an invalid Price (Negative Standard Price)");
+        Console.WriteLine("> Code: var invalidPrice1 = Price.Create(-50, 100);");
+        var invalidPrice1 = Price.Create(-50, 100);
+        ShowPriceResult(invalidPrice1);
 
-        // 3️⃣ Creating an invalid price (Negative Peak Price)
-        Console.WriteLine("\n[3] Creating an invalid price (Negative Peak Price)");
-        Console.WriteLine("> Code: var invalidPriceResult2 = Price.Create(100, -50);");
-        var invalidPriceResult2 = Price.Create(100, -50);
-        ShowResult(invalidPriceResult2);
+        // 3️⃣ Creating a valid AccommodationPrice
+        Console.WriteLine("\n[3] Creating a valid AccommodationPrice");
+        Console.WriteLine("> Code: var validAccommodationPrice = AccommodationPrice.Create(validPriceResult.Value, 50m);");
+        var validAccommodationPrice = AccommodationPrice.Create(validPriceResult.Value, 50m);
+        ShowAccommodationResult(validAccommodationPrice);
 
-        // 4️⃣ Creating an invalid price (Peak Price < Standard Price)
-        Console.WriteLine("\n[4] Creating an invalid price (Peak Price < Standard Price)");
-        Console.WriteLine("> Code: var invalidPriceResult3 = Price.Create(150, 100);");
-        var invalidPriceResult3 = Price.Create(150, 100);
-        ShowResult(invalidPriceResult3);
+        // 4️⃣ Trying to create an invalid AccommodationPrice (Negative Cleaning Fee)
+        Console.WriteLine("\n[4] Creating an invalid AccommodationPrice (Negative Cleaning Fee)");
+        Console.WriteLine("> Code: var invalidAccommodation1 = AccommodationPrice.Create(validPriceResult.Value, -10m);");
+        var invalidAccommodation1 = AccommodationPrice.Create(validPriceResult.Value, -10m);
+        ShowAccommodationResult(invalidAccommodation1);
 
-        // 5️⃣ Updating the standard price successfully
-        if (validPriceResult.IsSuccess)
-        {
-            Console.WriteLine("\n[5] Updating the standard price");
-            Console.WriteLine("> Code: var updatedStandardPrice = validPriceResult.Value.WithStandardPrice(120);");
-            var updatedStandardPrice = validPriceResult.Value.WithStandardPrice(120);
-            ShowResult(updatedStandardPrice);
-        }
+        // 5️⃣ Creating a valid EstablishmentAccommodation
+        Console.WriteLine("\n[5] Creating a valid EstablishmentAccommodation");
+        Console.WriteLine("> Code: var establishmentAccommodation = EstablishmentAccommodation.Create(validAccommodationPrice.Value);");
+        var establishmentAccommodation = EstablishmentAccommodation.Create(validAccommodationPrice.Value);
+        ShowEstablishmentAccommodationResult(establishmentAccommodation);
 
-        // 6️⃣ Trying to update standard price with a negative value
-        if (validPriceResult.IsSuccess)
-        {
-            Console.WriteLine("\n[6] Attempting to set a negative standard price");
-            Console.WriteLine("> Code: var failedUpdate = validPriceResult.Value.WithStandardPrice(-10);");
-            var failedUpdate = validPriceResult.Value.WithStandardPrice(-10);
-            ShowResult(failedUpdate);
-        }
+        // 6️⃣ Trying to create an invalid EstablishmentAccommodation with empty price
+        Console.WriteLine("\n[6] Creating an invalid EstablishmentAccommodation (Empty Price)");
+        Console.WriteLine("> Code: var emptyPriceAccommodation = EstablishmentAccommodation.Create(AccommodationPrice.Empty);");
+        var emptyPriceAccommodation = EstablishmentAccommodation.Create(AccommodationPrice.Empty);
+        ShowEstablishmentAccommodationResult(emptyPriceAccommodation);
 
-        // 7️⃣ Updating the peak price successfully
-        if (validPriceResult.IsSuccess)
-        {
-            Console.WriteLine("\n[7] Updating the peak price");
-            Console.WriteLine("> Code: var updatedPeakPrice = validPriceResult.Value.WithPeakPrice(180);");
-            var updatedPeakPrice = validPriceResult.Value.WithPeakPrice(180);
-            ShowResult(updatedPeakPrice);
-        }
+        // 7️⃣ Updating the price of EstablishmentAccommodation successfully
+        Console.WriteLine("\n[7] Updating the Price of EstablishmentAccommodation");
+        Console.WriteLine("> Code: var updatedAccommodation = establishmentAccommodation.Value.UpdatePrice(AccommodationPrice.Create(validPriceResult.Value, 75m).Value);");
+        var updatedAccommodation = establishmentAccommodation.Value.UpdatePrice(AccommodationPrice.Create(validPriceResult.Value, 75m).Value);
+        ShowEstablishmentAccommodationResult(updatedAccommodation);
 
-        // 8️⃣ Trying to update peak price with a value lower than standard price
-        if (validPriceResult.IsSuccess)
-        {
-            Console.WriteLine("\n[8] Attempting to set peak price lower than standard price");
-            Console.WriteLine("> Code: var failedPeakUpdate = validPriceResult.Value.WithPeakPrice(80);");
-            var failedPeakUpdate = validPriceResult.Value.WithPeakPrice(80);
-            ShowResult(failedPeakUpdate);
-        }
+        // 8️⃣ Trying to update the price of EstablishmentAccommodation with empty price
+        Console.WriteLine("\n[8] Attempting to Update EstablishmentAccommodation with Empty Price");
+        Console.WriteLine("> Code: var failedUpdate = establishmentAccommodation.Value.UpdatePrice(AccommodationPrice.Empty);");
+        var failedUpdate = establishmentAccommodation.Value.UpdatePrice(AccommodationPrice.Empty);
+        ShowEstablishmentAccommodationResult(failedUpdate);
 
-        // 9️⃣ Price equality check
-        Console.WriteLine("\n[9] Comparing two price objects with same values");
-        Console.WriteLine("> Code: var price1 = Price.Create(100, 150).Value;");
-        var price1 = Price.Create(100, 150).Value;
-
-        Console.WriteLine("> Code: var price2 = Price.Create(100, 150).Value;");
-        var price2 = Price.Create(100, 150).Value;
-
-        Console.WriteLine($"  - Are They Equal? {price1.Equals(price2)} (Expected: True)");
-
-        Console.WriteLine("\n[10] Comparing two price objects with different values");
-        Console.WriteLine("> Code: var price3 = Price.Create(200, 250).Value;");
-        var price3 = Price.Create(200, 250).Value;
-
-        Console.WriteLine($"  - Are They Equal? {price1.Equals(price3)} (Expected: False)");
-
-        // 🔟 Displaying zero price
-        Console.WriteLine("\n[11] Displaying zero price");
-        Console.WriteLine("> Code: Console.WriteLine(Price.Zero);");
-        Console.WriteLine($"  - Zero Price: {Price.Zero}");
-
-        // 1️⃣2️⃣ Displaying empty price
-        Console.WriteLine("\n[12] Displaying empty price");
-        Console.WriteLine("> Code: Console.WriteLine(Price.Empty);");
-        Console.WriteLine($"  - Empty Price: {Price.Empty}");
 
         Console.WriteLine("\n=== Demo Completed ===");
-
         Console.ReadKey();
     }
 
-    // Helper method to show result
-    static void ShowResult(Result<Price> result)
+    // Helper method to show Price result
+    static void ShowPriceResult(Result<Price> result)
     {
         if (result.IsSuccess)
         {
             Console.WriteLine($"  - Success: {result.Value}");
+        }
+        else
+        {
+            Console.WriteLine($"  - Error: {string.Join(", ", result.Errors)}");
+        }
+    }
+
+    // Helper method to show AccommodationPrice result
+    static void ShowAccommodationResult(Result<AccommodationPrice> result)
+    {
+        if (result.IsSuccess)
+        {
+            Console.WriteLine($"  - Success: {result.Value}");
+        }
+        else
+        {
+            Console.WriteLine($"  - Error: {string.Join(", ", result.Errors)}");
+        }
+    }
+
+    // Helper method to show EstablishmentAccommodation result
+    static void ShowEstablishmentAccommodationResult(Result<EstablishmentAccommodation> result)
+    {
+        if (result.IsSuccess)
+        {
+            Console.WriteLine($"  - Success: {result.Value}");
+        }
+        else
+        {
+            Console.WriteLine($"  - Error: {string.Join(", ", result.Errors)}");
+        }
+    }
+
+    // Helper method to show Bind result
+    static void ShowBindResult(Result<decimal> result)
+    {
+        if (result.IsSuccess)
+        {
+            Console.WriteLine($"  - Total Price: {result.Value}");
+        }
+        else
+        {
+            Console.WriteLine($"  - Error: {string.Join(", ", result.Errors)}");
+        }
+    }
+
+    // Helper method to show Map result
+    static void ShowMapResult(Result<string> result)
+    {
+        if (result.IsSuccess)
+        {
+            Console.WriteLine($"  - Formatted: {result.Value}");
         }
         else
         {

@@ -1,222 +1,363 @@
-﻿using FluentAssertions;
-using TestNest.ResultPattern.Domain.Common;
+﻿using TestNest.ResultPattern.Domain.Common;
 using TestNest.ResultPattern.Domain.Exceptions;
 using TestNest.ResultPattern.Domain.ValueObjects;
-using Xunit;
 
-namespace TestNest.Tests.Domain.ValueObjects
+namespace TestNest.ResultPattern.Test
 {
     public class PriceTests
     {
-        [Fact]
-        public void Price_ToString_ShouldReturnFormattedString()
-        {
-            // Arrange
-            var price = Price.Create(100, 150).Value;
+        private const decimal ValidStandardPrice = 100m;
+        private const decimal ValidPeakPrice = 150m;
 
-            // Act
-            var result = price.ToString();
-
-            // Assert
-            result.Should().Be("₱100.00 / ₱150.00 (Peak)");
-        }
+        #region Creation Tests
 
         [Fact]
-        public void Price_ShouldBeImmutable()
-        {
-            // Arrange
-            var price = Price.Create(100, 150).Value;
-
-            // Act
-            var newPriceResult = price.WithStandardPrice(120);
-
-            // Assert
-            newPriceResult.IsSuccess.Should().BeTrue(); // Ensure operation succeeded
-            var newPrice = newPriceResult.Value;
-
-            newPrice.Should().NotBeSameAs(price);
-            price.StandardPrice.Should().Be(100); // Original price remains unchanged
-            newPrice.StandardPrice.Should().Be(120);
-        }
-
-
-        [Fact]
-        public void Price_InstancesWithSameValues_ShouldBeEqual()
-        {
-            // Arrange
-            var price1 = Price.Create(100, 150).Value;
-            var price2 = Price.Create(100, 150).Value;
-
-            // Assert
-            price1.Should().Be(price2);
-        }
-
-        [Fact]
-        public void Price_InstancesWithDifferentValues_ShouldNotBeEqual()
-        {
-            // Arrange
-            var price1 = Price.Create(100, 150).Value;
-            var price2 = Price.Create(200, 250).Value;
-
-            // Assert
-            price1.Should().NotBe(price2);
-        }
-
-
-        [Fact]
-        public void Price_Zero_ShouldHaveZeroValues()
+        public void Create_WithValidPrices_ReturnsSuccessResult()
         {
             // Act
-            var zeroPrice = Price.Zero;
+            var result = Price.Create(ValidStandardPrice, ValidPeakPrice);
 
             // Assert
-            zeroPrice.StandardPrice.Should().Be(0);
-            zeroPrice.PeakPrice.Should().Be(0);
+            Assert.True(result.IsSuccess);
+            Assert.Equal(ValidStandardPrice, result.Value!.StandardPrice);
+            Assert.Equal(ValidPeakPrice, result.Value.PeakPrice);
         }
 
         [Fact]
-        public void Price_Empty_ShouldHaveZeroValues()
-        {
-            // Act
-            var emptyPrice = Price.Empty;
-
-            // Assert
-            emptyPrice.StandardPrice.Should().Be(0);
-            emptyPrice.PeakPrice.Should().Be(0);
-        }
-
-
-        [Fact]
-        public void Create_ShouldSucceed_WhenPricesAreValid()
+        public void Create_WithNegativeStandardPrice_ReturnsFailureResult()
         {
             // Arrange
-            decimal standardPrice = 100;
-            decimal peakPrice = 150;
+            const decimal negativeStandardPrice = -50m;
 
             // Act
-            var result = Price.Create(standardPrice, peakPrice);
+            var result = Price.Create(negativeStandardPrice, ValidPeakPrice);
 
             // Assert
-            result.IsSuccess.Should().BeTrue();
-            result.Value.StandardPrice.Should().Be(standardPrice);
-            result.Value.PeakPrice.Should().Be(peakPrice);
+            Assert.False(result.IsSuccess);
+            Assert.Equal(ErrorType.Validation, result.ErrorType);
+            Assert.Single(result.Errors);
+            Assert.Equal(
+                PriceException.ErrorCode.NegativeStandardPrice.ToString(),
+                result.Errors[0].Code);
         }
 
         [Fact]
-        public void Create_ShouldFail_WhenStandardPriceIsNegative()
+        public void Create_WithNegativePeakPrice_ReturnsFailureResult()
         {
             // Arrange
-            decimal standardPrice = -50;
-            decimal peakPrice = 100;
+            const decimal negativePeakPrice = -50m;
 
             // Act
-            var result = Price.Create(standardPrice, peakPrice);
+            var result = Price.Create(ValidStandardPrice, negativePeakPrice);
 
             // Assert
-            result.IsSuccess.Should().BeFalse();
-            result.Errors.Should().Contain(PriceException.NegativeStandardPrice().Message);
+            Assert.False(result.IsSuccess);
+            Assert.Equal(ErrorType.Validation, result.ErrorType);
+            Assert.Single(result.Errors);
+            Assert.Equal(
+                PriceException.ErrorCode.NegativePeakPrice.ToString(),
+                result.Errors[0].Code);
         }
 
         [Fact]
-        public void Create_ShouldFail_WhenPeakPriceIsNegative()
+        public void Create_WithPeakBelowStandard_ReturnsFailureResult()
         {
             // Arrange
-            decimal standardPrice = 100;
-            decimal peakPrice = -50;
+            const decimal lowerPeakPrice = 50m;
 
             // Act
-            var result = Price.Create(standardPrice, peakPrice);
+            var result = Price.Create(ValidStandardPrice, lowerPeakPrice);
 
             // Assert
-            result.IsSuccess.Should().BeFalse();
-            result.Errors.Should().Contain(PriceException.NegativePeakPrice().Message);
+            Assert.False(result.IsSuccess);
+            Assert.Equal(ErrorType.Validation, result.ErrorType);
+            Assert.Single(result.Errors);
+            Assert.Equal(
+                PriceException.ErrorCode.PeakBelowStandard.ToString(),
+                result.Errors[0].Code);
         }
 
         [Fact]
-        public void Create_ShouldFail_WhenPeakPriceIsLessThanStandardPrice()
+        public void Create_WithAllThreeInvalidConditions_ReturnsAllThreeErrors()
         {
             // Arrange
-            decimal standardPrice = 150;
-            decimal peakPrice = 100;
+            const decimal negativeStandardPrice = -50m;
+            const decimal negativePeakPrice = -100m; // Also less than standard price
 
             // Act
-            var result = Price.Create(standardPrice, peakPrice);
+            var result = Price.Create(negativeStandardPrice, negativePeakPrice);
 
             // Assert
-            result.IsSuccess.Should().BeFalse();
-            result.Errors.Should().Contain(PriceException.PeakBelowStandard().Message);
+            Assert.False(result.IsSuccess);
+            Assert.Equal(2, result.Errors.Count); // Ensure there are two errors
+            Assert.Contains(result.Errors, e => e.Code == PriceException.ErrorCode.NegativeStandardPrice.ToString());
+            Assert.Contains(result.Errors, e => e.Code == PriceException.ErrorCode.NegativePeakPrice.ToString());
         }
 
         [Fact]
-        public void WithStandardPrice_ShouldReturnNewInstance_WhenStandardPriceIsUpdated()
+        public void Create_WithValidStandardButInvalidPeak_ReturnsOnlyPeakErrors()
         {
             // Arrange
-            var price = Price.Create(100, 150).Value;
+            const decimal validStandardPrice = 100m;
+            const decimal negativePeakPrice = -50m;
 
             // Act
-            var result = price.WithStandardPrice(120);
+            var result = Price.Create(validStandardPrice, negativePeakPrice);
 
             // Assert
-            result.IsSuccess.Should().BeTrue();
-            result.Value.StandardPrice.Should().Be(120);
-            result.Value.PeakPrice.Should().Be(150);
+            Assert.False(result.IsSuccess);
+            Assert.Single(result.Errors);
+            Assert.Equal(PriceException.ErrorCode.NegativePeakPrice.ToString(), result.Errors[0].Code);
         }
 
         [Fact]
-        public void WithStandardPrice_ShouldFail_WhenNewStandardPriceIsNegative()
+        public void Create_WithNegativeStandardPriceOnly_ReturnsSingleError()
         {
-            // Arrange
-            var price = Price.Create(100, 150).Value;
+            var result = Price.Create(-50m, 100m);
 
-            // Act
-            var result = price.WithStandardPrice(-10);
-
-            // Assert
-            result.IsSuccess.Should().BeFalse();
-            result.Errors.Should().Contain(PriceException.NegativeStandardPrice().Message);
+            Assert.False(result.IsSuccess);
+            Assert.Single(result.Errors);
+            Assert.Equal(PriceException.ErrorCode.NegativeStandardPrice.ToString(),
+                        result.Errors[0].Code);
         }
 
         [Fact]
-        public void WithPeakPrice_ShouldReturnNewInstance_WhenPeakPriceIsUpdated()
+        public void Create_WithNegativePeakPriceOnly_ReturnsSingleError()
         {
-            // Arrange
-            var price = Price.Create(100, 150).Value;
+            var result = Price.Create(50m, -100m);
 
-            // Act
-            var result = price.WithPeakPrice(180);
-
-            // Assert
-            result.IsSuccess.Should().BeTrue();
-            result.Value.StandardPrice.Should().Be(100);
-            result.Value.PeakPrice.Should().Be(180);
+            Assert.False(result.IsSuccess);
+            Assert.Single(result.Errors);
+            Assert.Equal(PriceException.ErrorCode.NegativePeakPrice.ToString(),
+                        result.Errors[0].Code);
         }
 
         [Fact]
-        public void WithPeakPrice_ShouldFail_WhenNewPeakPriceIsNegative()
+        public void Create_WithMultipleInvalidPrices_ReturnsFailureWithAllErrors()
         {
-            // Arrange
-            var price = Price.Create(100, 150).Value;
+            // Test case that triggers all three error conditions
+            const decimal negativeStandardPrice = -50m;
+            const decimal negativePeakPrice = -100m;
 
+            var result = Price.Create(negativeStandardPrice, negativePeakPrice);
+
+            Assert.False(result.IsSuccess);
+            Assert.Equal(ErrorType.Validation, result.ErrorType);
+
+            // Verify we got exactly 2 errors
+            Assert.Equal(2, result.Errors.Count);
+
+            // Verify each specific error exists
+            var errorCodes = result.Errors.Select(e => e.Code).ToList();
+            Assert.Contains(PriceException.ErrorCode.NegativeStandardPrice.ToString(), errorCodes);
+            Assert.Contains(PriceException.ErrorCode.NegativePeakPrice.ToString(), errorCodes);
+        }
+
+        #endregion
+
+        #region Static Properties Tests
+
+        [Fact]
+        public void Empty_ReturnsPriceWithZeroValues()
+        {
             // Act
-            var result = price.WithPeakPrice(-20);
+            var price = Price.Empty;
 
             // Assert
-            result.IsSuccess.Should().BeFalse();
-            result.Errors.Should().Contain(PriceException.NegativePeakPrice().Message);
+            Assert.Equal(0m, price.StandardPrice);
+            Assert.Equal(0m, price.PeakPrice);
         }
 
         [Fact]
-        public void WithPeakPrice_ShouldFail_WhenNewPeakPriceIsLessThanStandardPrice()
+        public void Zero_ReturnsPriceWithZeroValues()
         {
-            // Arrange
-            var price = Price.Create(100, 150).Value;
-
             // Act
-            var result = price.WithPeakPrice(80);
+            var price = Price.Zero;
 
             // Assert
-            result.IsSuccess.Should().BeFalse();
-            result.Errors.Should().Contain(PriceException.PeakBelowStandard().Message);
+            Assert.Equal(0m, price.StandardPrice);
+            Assert.Equal(0m, price.PeakPrice);
         }
+
+        #endregion
+
+        #region With Methods Tests
+
+        [Fact]
+        public void WithStandardPrice_WithValidPrice_ReturnsSuccessResult()
+        {
+            // Arrange
+            var originalPrice = Price.Create(ValidStandardPrice, ValidPeakPrice).Value;
+            const decimal newStandardPrice = 120m;
+
+            // Act
+            var result = originalPrice!.WithStandardPrice(newStandardPrice);
+
+            // Assert
+            Assert.True(result.IsSuccess);
+            Assert.Equal(newStandardPrice, result.Value!.StandardPrice);
+            Assert.Equal(ValidPeakPrice, result.Value.PeakPrice);
+        }
+
+        [Fact]
+        public void WithStandardPrice_WithInvalidPrice_ReturnsFailureResult()
+        {
+            // Arrange
+            var originalPrice = Price.Create(ValidStandardPrice, ValidPeakPrice).Value;
+            const decimal invalidPrice = -50m;
+
+            // Act
+            var result = originalPrice!.WithStandardPrice(invalidPrice);
+
+            // Assert
+            Assert.False(result.IsSuccess);
+            Assert.Equal(ErrorType.Validation, result.ErrorType);
+        }
+
+        [Fact]
+        public void WithPeakPrice_WithValidPrice_ReturnsSuccessResult()
+        {
+            // Arrange
+            var originalPrice = Price.Create(ValidStandardPrice, ValidPeakPrice).Value;
+            const decimal newPeakPrice = 200m;
+
+            // Act
+            var result = originalPrice!.WithPeakPrice(newPeakPrice);
+
+            // Assert
+            Assert.True(result.IsSuccess);
+            Assert.Equal(ValidStandardPrice, result.Value!.StandardPrice);
+            Assert.Equal(newPeakPrice, result.Value.PeakPrice);
+        }
+
+        [Fact]
+        public void WithPeakPrice_WithInvalidPrice_ReturnsFailureResult()
+        {
+            // Arrange
+            var originalPrice = Price.Create(ValidStandardPrice, ValidPeakPrice).Value;
+            const decimal invalidPrice = -50m;
+
+            // Act
+            var result = originalPrice!.WithPeakPrice(invalidPrice);
+
+            // Assert
+            Assert.False(result.IsSuccess);
+            Assert.Equal(ErrorType.Validation, result.ErrorType);
+        }
+
+        #endregion
+
+        #region Value Object Behavior Tests
+
+        [Fact]
+        public void Equals_WithSameValues_ReturnsTrue()
+        {
+            // Arrange
+            var price1 = Price.Create(ValidStandardPrice, ValidPeakPrice).Value;
+            var price2 = Price.Create(ValidStandardPrice, ValidPeakPrice).Value;
+
+            // Act & Assert
+            Assert.True(price1!.Equals(price2));
+        }
+
+        [Fact]
+        public void Equals_WithDifferentValues_ReturnsFalse()
+        {
+            // Arrange
+            var price1 = Price.Create(ValidStandardPrice, ValidPeakPrice).Value;
+            var price2 = Price.Create(ValidStandardPrice + 10m, ValidPeakPrice).Value;
+
+            // Act & Assert
+            Assert.False(price1!.Equals(price2));
+        }
+
+        [Fact]
+        public void GetHashCode_ForEqualObjects_ReturnsSameValue()
+        {
+            // Arrange
+            var price1 = Price.Create(ValidStandardPrice, ValidPeakPrice).Value;
+            var price2 = Price.Create(ValidStandardPrice, ValidPeakPrice).Value;
+
+            // Act & Assert
+            Assert.Equal(price1!.GetHashCode(), price2!.GetHashCode());
+        }
+
+        [Fact]
+        public void ToString_ReturnsFormattedString()
+        {
+            // Arrange
+            var price = Price.Create(ValidStandardPrice, ValidPeakPrice).Value;
+            var expected = $"₱{ValidStandardPrice:F2} / ₱{ValidPeakPrice:F2} (Peak)";
+
+            // Act & Assert
+            Assert.Equal(expected, price!.ToString());
+        }
+
+        #endregion
+
+        #region Edge Cases
+
+        [Fact]
+        public void Create_WithZeroPrices_ReturnsSuccessResult()
+        {
+            // Act
+            var result = Price.Create(0m, 0m);
+
+            // Assert
+            Assert.True(result.IsSuccess);
+            Assert.Equal(0m, result.Value!.StandardPrice);
+            Assert.Equal(0m, result.Value.PeakPrice);
+        }
+
+        [Fact]
+        public void Create_WithEqualStandardAndPeakPrices_ReturnsSuccessResult()
+        {
+            // Arrange
+            const decimal equalPrice = 100m;
+
+            // Act
+            var result = Price.Create(equalPrice, equalPrice);
+
+            // Assert
+            Assert.True(result.IsSuccess);
+            Assert.Equal(equalPrice, result.Value!.StandardPrice);
+            Assert.Equal(equalPrice, result.Value.PeakPrice);
+        }
+
+        #endregion
+
+        #region Bind & Map Tests
+
+        [Fact]
+        public void Bind_WithValidPrice_TransformsSuccessfully()
+        {
+            // Arrange
+            var priceResult = Price.Create(100m, 150m);  // This is your Price value object
+
+            // Act
+            var totalPriceResult = priceResult
+                .Bind(price => Result<decimal>.Success(price.StandardPrice + price.PeakPrice));  // Binding transformation
+
+            // Assert
+            Assert.True(totalPriceResult.IsSuccess);
+            Assert.Equal(250m, totalPriceResult.Value);
+        }
+
+        [Fact]
+        public void Map_WithValidPrice_TransformsSuccessfully()
+        {
+            // Arrange
+            var priceResult = Price.Create(100m, 150m);  // This is your Price value object
+
+            // Act
+            var totalPriceResult = priceResult
+                .Map(price => price.StandardPrice + price.PeakPrice);  // Mapping transformation
+
+            // Assert
+            Assert.True(totalPriceResult.IsSuccess);
+            Assert.Equal(250m, totalPriceResult.Value);
+        }
+
+        #endregion
     }
 }

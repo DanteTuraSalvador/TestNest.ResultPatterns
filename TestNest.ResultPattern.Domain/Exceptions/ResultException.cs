@@ -1,4 +1,6 @@
-﻿namespace TestNest.ResultPattern.Domain.Exceptions;
+﻿using TestNest.ResultPattern.Domain.Common;
+
+namespace TestNest.ResultPattern.Domain.Exceptions;
 
 public class ResultException : Exception
 {
@@ -10,6 +12,19 @@ public class ResultException : Exception
     {
         ResultType = resultType;
         Errors = errors.ToList();
+    }
+
+    public static void ValidateErrorCodeAndMessage(string code, string message)
+    {
+        if (string.IsNullOrEmpty(code))
+        {
+            throw new ResultException("Error code cannot be null or empty.", typeof(Error), new[] { "Error code cannot be null or empty." });
+        }
+
+        if (string.IsNullOrEmpty(message))
+        {
+            throw new ResultException("Error message cannot be null or empty.", typeof(Error), new[] { "Error message cannot be null or empty." });
+        }
     }
 
     public static ResultException NullValue(Type resultType) =>

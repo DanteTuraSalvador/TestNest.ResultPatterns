@@ -6,7 +6,7 @@ namespace TestNest.ResultPattern.Domain.ValueObjects;
 public sealed class Price : ValueObject
 {
     private static readonly Lazy<Price> _lazyEmpty = new(() => new Price());
-    private static readonly Lazy<Price> _lazyZero = new(() => new Price(0, 0));
+    private static readonly Lazy<Price> _lazyZero = new(() => new Price(0, 0)); // ✅ Fix Zero Initialization
 
     public static Price Empty => _lazyEmpty.Value;
     public static Price Zero => _lazyZero.Value;
@@ -16,14 +16,34 @@ public sealed class Price : ValueObject
     public Currency Currency => Currency.PHP; // Fixed to PHP
 
     private Price() => (StandardPrice, PeakPrice) = (0, 0);
-    private Price(decimal standardPrice, decimal peakPrice) =>
-        (StandardPrice, PeakPrice) = (standardPrice, peakPrice);
+    private Price(decimal standardPrice, decimal peakPrice)  => (StandardPrice, PeakPrice) = (standardPrice, peakPrice);
 
     public static Result<Price> Create(decimal standardPrice, decimal peakPrice)
     {
-        if (standardPrice < 0) return Result<Price>.Failure(ErrorType.Validation, PriceException.NegativeStandardPrice().Message);
-        if (peakPrice < 0) return Result<Price>.Failure(ErrorType.Validation, PriceException.NegativePeakPrice().Message);
-        if (peakPrice < standardPrice) return Result<Price>.Failure(ErrorType.Validation, PriceException.PeakBelowStandard().Message);
+        var errors = new List<Error>();
+
+        if (standardPrice < 0)
+        {
+            var exception = PriceException.NegativeStandardPrice();
+            errors.Add(new Error(exception.Code.ToString(), exception.Message));
+        }
+
+        if (peakPrice < 0)
+        {
+            var exception = PriceException.NegativePeakPrice();
+            errors.Add(new Error(exception.Code.ToString(), exception.Message));
+        }
+
+        if (standardPrice >= 0 && peakPrice >= 0 && peakPrice < standardPrice)
+        {
+            var exception = PriceException.PeakBelowStandard();
+            errors.Add(new Error(exception.Code.ToString(), exception.Message));
+        }
+
+        if (errors.Any())
+        {
+            return Result<Price>.Failure(ErrorType.Validation, errors);
+        }
 
         return Result<Price>.Success(new Price(standardPrice, peakPrice));
     }
