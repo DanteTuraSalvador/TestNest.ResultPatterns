@@ -1,11 +1,17 @@
-# 🚀 Result Pattern Library  
+# 🚀 Result Pattern   
 
-A lightweight and extensible `Result<T>` implementation for handling success, failure, and error states in .NET applications.  
+This repository contains an implementation of the **Result pattern** in C#. The Result pattern is a way to handle operations that may fail by returning a `Result<T>` type rather than throwing exceptions. It allows for more expressive error handling and better control over flow without relying on traditional exception handling.
 
-## ✨ Features  
+## This implementation includes:
 
-✅ **Encapsulates Success & Failure** – No more throwing exceptions for control flow  
-🔄 **Supports Error Codes & Messages** – Provides detailed failure reasons  
-⚡ **Chainable API** – Enables fluent programming  
-🛠️ **Works Across Layers** – Suitable for Domain, Application, and API layers  
-📦 **Zero External Dependencies** – Lightweight and easy to use  
+- ✅ **Result class**: Used to wrap success and failure outcomes of operations.
+- ✅ **Result<T> class**: A generic version that holds a value and errors for specific operations.
+- ✅ **Error class**: Represents detailed error information.
+- ✅ **Bind and Map methods**: For fluent chaining and handling asynchronous operations.
+
+## Features
+
+- 🔗 **Fluent Chaining**: Easily chain multiple operations while handling errors cleanly.
+- ⚡ **Async Support**: Built-in support for asynchronous operations.
+- ⚠️ **Error Handling**: Encapsulates errors with error codes and messages, providing detailed context.
+- 🛡️ **Immutability**: Result objects are immutable once created.
