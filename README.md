@@ -215,3 +215,266 @@ public sealed class Result<T>
 }
 
 ```
+## 📌 Usage Examples
+### ✅ Result Class
+The Result class is used when there is no return value but you still want to communicate whether an operation succeeded or failed. It also carries any relevant error information in case of failure.
+```csharp
+var result = Result.Success(); // Indicates success
+var errorResult = Result.Failure(ErrorType.Validation, "ERR001", "Invalid input"); // Indicates failure with error
+```
+
+### ✅ Result<T> Class
+The Result<T> class is a generic version that wraps a successful result with a value of type T. If the operation fails, it contains error information, similar to the Result class.
+```csharp
+var result = Result<int>.Success(42); // Success with value
+var errorResult = Result<int>.Failure(ErrorType.Validation, "ERR002", "Invalid data"); // Failure with error
+```
+
+### ✅ Fluent Chaining with Bind and Map
+You can chain operations using Bind and Map methods, which allow you to transform or pass the result through multiple stages. If any stage fails, the chain stops immediately, and the failure result is returned.
+```csharp
+var result = Result<int>.Success(42)
+    .Bind(x => Result<int>.Success(x + 1)) // Adds 1 to the result
+    .Map(x => x * 2); // Multiplies the result by 2
+```
+### ✅ Error Handling
+The error handling is done using the Error class, which stores error codes and messages. You can check for errors using IsSuccess and handle them accordingly.
+```csharp
+var result = Result<int>.Failure(ErrorType.Validation, "ERR003", "Out of bounds");
+if (!result.IsSuccess)
+{
+    Console.WriteLine($"Error: {result.Errors.First().Message}");
+}
+```
+
+## 📌 Implementing Value Objects and Concrete Class
+### ✅ Price Value Object 
+```csharp
+public sealed class Price : ValueObject
+{
+    private static readonly Lazy<Price> _lazyEmpty = new(() => new Price());
+    private static readonly Lazy<Price> _lazyZero = new(() => new Price(0, 0)); // ✅ Fix Zero Initialization
+
+    public static Price Empty => _lazyEmpty.Value;
+    public static Price Zero => _lazyZero.Value;
+
+    public decimal StandardPrice { get; }
+    public decimal PeakPrice { get; }
+    public Currency Currency => Currency.PHP; // Fixed to PHP
+
+    private Price() => (StandardPrice, PeakPrice) = (0, 0);
+    private Price(decimal standardPrice, decimal peakPrice)  => (StandardPrice, PeakPrice) = (standardPrice, peakPrice);
+
+    public static Result<Price> Create(decimal standardPrice, decimal peakPrice)
+    {
+        var errors = new List<Error>();
+
+        if (standardPrice < 0)
+        {
+            var exception = PriceException.NegativeStandardPrice();
+            errors.Add(new Error(exception.Code.ToString(), exception.Message));
+        }
+
+        if (peakPrice < 0)
+        {
+            var exception = PriceException.NegativePeakPrice();
+            errors.Add(new Error(exception.Code.ToString(), exception.Message));
+        }
+
+        if (standardPrice >= 0 && peakPrice >= 0 && peakPrice < standardPrice)
+        {
+            var exception = PriceException.PeakBelowStandard();
+            errors.Add(new Error(exception.Code.ToString(), exception.Message));
+        }
+
+        if (errors.Any())
+        {
+            return Result<Price>.Failure(ErrorType.Validation, errors);
+        }
+
+        return Result<Price>.Success(new Price(standardPrice, peakPrice));
+    }
+
+    public Result<Price> WithStandardPrice(decimal newStandardPrice) => Create(newStandardPrice, PeakPrice);
+    public Result<Price> WithPeakPrice(decimal newPeakPrice) => Create(StandardPrice, newPeakPrice);
+
+    protected override IEnumerable<object?> GetAtomicValues()
+    {
+        yield return StandardPrice;
+        yield return PeakPrice;
+        yield return Currency;
+    }
+
+    public override string ToString() => $"{Currency.Symbol}{StandardPrice:F2} / {Currency.Symbol}{PeakPrice:F2} (Peak)";
+}
+```
+### ✅ AccommodationPrice Value Object
+```csharp
+public sealed class AccommodationPrice : ValueObject
+{
+    public Price Price { get; }
+    public decimal CleaningFee { get; }
+
+    private static readonly Lazy<AccommodationPrice> _empty = new(() => new AccommodationPrice(Price.Empty, 0));
+    private static readonly Lazy<AccommodationPrice> _zero = new(() => new AccommodationPrice(Price.Zero, 0));
+
+    public static AccommodationPrice Empty => _empty.Value;
+    public static AccommodationPrice Zero => _zero.Value;
+
+    private AccommodationPrice() => (Price, CleaningFee) = (Price.Empty, 0);
+
+    private AccommodationPrice(Price price, decimal cleaningFee)
+        => (Price, CleaningFee) = (price, cleaningFee);
+
+    public static Result<AccommodationPrice> Create(decimal standardPrice, decimal peakPrice, decimal cleaningFee)
+        => Price.Create(standardPrice, peakPrice).Bind(price => Create(price, cleaningFee));
+
+    public static Result<AccommodationPrice> Create(Price? price, decimal cleaningFee)
+    {
+        var errors = new List<Error>();
+        
+        if (price == null)
+        {
+            var exception = AccommodationPriceException.NullPrice();
+            errors.Add(new Error(exception.Code.ToString(), exception.Message.ToString()));
+        }
+        if (price == Price.Empty)
+        {
+            var exception = AccommodationPriceException.NullPrice();
+            errors.Add(new Error(exception.Code.ToString(), exception.Message.ToString()));
+        }
+        if (cleaningFee < 0)
+        {
+            var exception = AccommodationPriceException.NegativeCleaningFee();
+            errors.Add(new Error(exception.Code.ToString(), exception.Message.ToString()));
+        }
+
+        if (errors.Any())
+        {
+            return Result<AccommodationPrice>.Failure(ErrorType.Validation, errors);
+        }
+
+        return Result<AccommodationPrice>.Success(new AccommodationPrice(price!, cleaningFee));
+    }
+
+    public static Result<AccommodationPrice> Create(Result<Price> priceResult, decimal cleaningFee)
+        => !priceResult.IsSuccess ? Result<AccommodationPrice>.Failure(priceResult.ErrorType, priceResult.Errors)
+            : Create(priceResult.Value!, cleaningFee);
+
+    public Result<AccommodationPrice> WithPrice(Price newPrice)
+    {
+        if (this == Empty)
+        {
+            var exception = AccommodationPriceException.CannotModifyEmpty();
+            return Result<AccommodationPrice>.Failure(ErrorType.Validation, new Error(exception.Code.ToString(), exception.Message));
+        }
+
+        if (newPrice is null)
+        {
+            var exception = AccommodationPriceException.NullPrice();
+            return Result<AccommodationPrice>.Failure(ErrorType.Validation, new Error(exception.Code.ToString(), exception.Message));
+        }
+
+        return Create(newPrice, CleaningFee);
+    }
+
+    public Result<AccommodationPrice> WithPrice(Result<Price> newPriceResult)
+        => newPriceResult.IsSuccess ? Create(newPriceResult.Value!, CleaningFee)
+            : Result<AccommodationPrice>.Failure(newPriceResult.ErrorType, newPriceResult.Errors);
+
+    public Result<AccommodationPrice> WithCleaningFee(decimal newCleaningFee)
+    {
+        if (this == Empty)
+        {
+            var exception = AccommodationPriceException.CannotModifyEmpty();
+            return Result<AccommodationPrice>.Failure(ErrorType.Validation, new Error(exception.Code.ToString(), exception.Message));
+        }
+
+        if (newCleaningFee < 0)
+        {
+            var exception = AccommodationPriceException.NegativeCleaningFee();
+            return Result<AccommodationPrice>.Failure(ErrorType.Validation, new Error(exception.Code.ToString(), exception.Message));
+        }
+
+        return Create(Price, newCleaningFee);
+    }
+
+    protected override IEnumerable<object?> GetAtomicValues()
+    {
+        yield return Price;
+        yield return CleaningFee;
+    }
+
+    public override string ToString() =>
+        $"{Price} + Cleaning Fee: {Price.Currency.Symbol}{CleaningFee:F2}";
+}
+```
+### ✅ EstablishmentAccomodationPrice Concrete Class
+```csharp
+public sealed class EstablishmentAccommodation
+{
+    public AccommodationPrice Price { get; }
+
+    private static readonly Lazy<EstablishmentAccommodation> _empty = new(() => new EstablishmentAccommodation());
+    public static EstablishmentAccommodation Empty => _empty.Value;
+
+    private EstablishmentAccommodation() => Price = AccommodationPrice.Empty;
+
+    private EstablishmentAccommodation(AccommodationPrice price) => Price = price;
+
+    public static Result<EstablishmentAccommodation> Create(Result<AccommodationPrice> priceResult)
+    {
+        if (priceResult.IsSuccess)
+        {
+            return Result<EstablishmentAccommodation>
+                .Success(new EstablishmentAccommodation(priceResult.Value!));
+        }
+
+        return Result<EstablishmentAccommodation>
+            .Failure(priceResult.ErrorType, priceResult.Errors);
+    }
+
+
+    public static Result<EstablishmentAccommodation> Create(AccommodationPrice price)
+    {
+        if (price == AccommodationPrice.Empty)
+        {
+            return Result<EstablishmentAccommodation>
+                .Failure(ErrorType.Validation, 
+                    new Error(EstablishmentAccommodationException.InvalidAccommodationPrice().Code.ToString(),
+                              EstablishmentAccommodationException.InvalidAccommodationPrice().Message));
+        }
+
+        return Result<EstablishmentAccommodation>
+            .Success(new EstablishmentAccommodation(price));
+    }
+
+
+    public Result<EstablishmentAccommodation> UpdatePrice(AccommodationPrice newPrice)
+    {
+        if (newPrice == AccommodationPrice.Empty)
+        {
+            return Result<EstablishmentAccommodation>
+                .Failure(ErrorType.Validation, 
+                    new Error(EstablishmentAccommodationException.InvalidAccommodationPrice().Code.ToString(),
+                              EstablishmentAccommodationException.InvalidAccommodationPrice().Message));
+        }
+
+        return Result<EstablishmentAccommodation>
+            .Success(new EstablishmentAccommodation(newPrice));
+    }
+
+
+    public Result<EstablishmentAccommodation> UpdatePrice(Result<AccommodationPrice> newPriceResult)
+    {
+        if (newPriceResult.IsSuccess)
+        {
+            return Result<EstablishmentAccommodation>
+                .Success(new EstablishmentAccommodation(newPriceResult.Value!));
+        }
+
+        return Result<EstablishmentAccommodation>
+            .Failure(newPriceResult.ErrorType, newPriceResult.Errors);
+    }
+}
+```
