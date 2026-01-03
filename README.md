@@ -1,4 +1,6 @@
-# 🚀 Result Pattern   
+# 🚀 Result Pattern
+
+[![Azure DevOps Board](https://img.shields.io/badge/Azure%20DevOps-Board-0078D7?logo=azure-devops)](https://dev.azure.com/tengtium-io/ResultPatterns/_boards/board/t/ResultPatterns%20Team/Stories)
 
 This repository contains an implementation of the **Result pattern** in C#. The Result pattern is a way to handle operations that may fail by returning a `Result<T>` type rather than throwing exceptions. It allows for more expressive error handling and better control over flow without relying on traditional exception handling.
 
@@ -478,6 +480,12 @@ public sealed class EstablishmentAccommodation
     }
 }
 ```
+## 🔗 Related Projects
+
+- [TestNest.StronglyTypeId](https://github.com/DanteTuraSalvador/TestNest.StronglyTypeId) - Strongly typed ID implementations
+- [TestNest.ValueObjects](https://github.com/DanteTuraSalvador/TestNest.ValueObjects) - Value Object pattern implementations
+- [TestNest.SmartEnums](https://github.com/DanteTuraSalvador/TestNest.SmartEnums) - Smart Enum pattern with state machine
+
 ## 📜 License
 
 This project is open-source and free to use.
